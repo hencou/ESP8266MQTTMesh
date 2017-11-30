@@ -47,7 +47,9 @@ enum {
 
 //#define EMMDBG_LEVEL (EMMDBG_WIFI | EMMDBG_MQTT | EMMDBG_OTA)
 #ifndef EMMDBG_LEVEL
-  #define EMMDBG_LEVEL EMMDBG_ALL_EXTRA
+  //#define EMMDBG_LEVEL EMMDBG_ALL_EXTRA
+  #define EMMDBG_LEVEL EMMDBG_NONE
+  //#define EMMDBG_LEVEL EMMDBG_MQTT_EXTRA
 #endif
 
 #define dbgPrintln(lvl, msg) if (((lvl) & (EMMDBG_LEVEL)) == (lvl)) Serial.println("[" + String(__FUNCTION__) + "] " + msg)
@@ -56,23 +58,23 @@ size_t strlcat (char *dst, const char *src, size_t len) {
     return strlcpy(dst + slen, src, len - slen);
 }
 
-
-ESP8266MQTTMesh::ESP8266MQTTMesh(const char **networks, const char *network_password,
-                    const char *mqtt_server, int mqtt_port,
-                    const char *mqtt_username, const char *mqtt_password,
-                    const char *firmware_ver, int firmware_id,
-                    const char *mesh_password, const char *base_ssid, int mesh_port,
+ESP8266MQTTMesh::ESP8266MQTTMesh(const char **networks,
+                                const char *network_password,
+                                const char *firmware_ver,
+                                int firmware_id,
+                                const char *mesh_password,
+                                const char *base_ssid,
+                                int mesh_port,
 #if ASYNC_TCP_SSL_ENABLED
-                    bool mqtt_secure, const uint8_t *mqtt_fingerprint, bool mesh_secure,
+                                bool mqtt_secure,
+                                const uint8_t *mqtt_fingerprint,
+                                bool mesh_secure,
 #endif
-                    const char *inTopic, const char *outTopic
+                                const char *inTopic,
+                                const char *outTopic
                     ) :
         networks(networks),
         network_password(network_password),
-        mqtt_server(mqtt_server),
-        mqtt_port(mqtt_port),
-        mqtt_username(mqtt_username),
-        mqtt_password(mqtt_password),
         firmware_id(firmware_id),
         firmware_ver(firmware_ver),
         mesh_password(mesh_password),
@@ -90,33 +92,36 @@ ESP8266MQTTMesh::ESP8266MQTTMesh(const char **networks, const char *network_pass
 
     espClient[0] = new AsyncClient();
     mySSID[0] = 0;
-#if HAS_OTA
-    uint32_t usedSize = ESP.getSketchSize();
-    // round one sector up
-    freeSpaceStart = (usedSize + FLASH_SECTOR_SIZE - 1) & (~(FLASH_SECTOR_SIZE - 1));
-    //freeSpaceEnd = (uint32_t)&_SPIFFS_start - 0x40200000;
-    freeSpaceEnd = ESP.getFreeSketchSpace() + freeSpaceStart;
-#endif
 }
 
-ESP8266MQTTMesh::ESP8266MQTTMesh(unsigned int firmware_id, const char *firmware_ver,
-                                 const char **networks, const char *network_password, const char *mesh_password,
-                                 const char *base_ssid, const char *mqtt_server, int mqtt_port, int mesh_port,
-                                 const char *inTopic,   const char *outTopic
+ESP8266MQTTMesh::ESP8266MQTTMesh(unsigned int firmware_id,
+                                const char *firmware_ver,
+                                 const char **networks,
+                                 const char *network_password,
+                                 const char *mesh_password,
+                                 const char *base_ssid,
+                                 const char *inTopic,
+                                 const char *outTopic
 #if ASYNC_TCP_SSL_ENABLED
-                                 , bool mqtt_secure, const uint8_t *mqtt_fingerprint, bool mesh_secure
+                                 , bool mqtt_secure,
+                                 const uint8_t *mqtt_fingerprint,
+                                 bool mesh_secure
 #endif
                                  ) :
-    ESP8266MQTTMesh(networks, network_password, mqtt_server, mqtt_port,
-                    NULL, NULL,
-                    firmware_ver, firmware_id,
-                    mesh_password, base_ssid, mesh_port,
+    ESP8266MQTTMesh(networks,
+					network_password,
+                    firmware_ver,
+					firmware_id,
+                    mesh_password,
+					base_ssid, mesh_port,
 #if ASYNC_TCP_SSL_ENABLED
-                    mqtt_secure, mqtt_fingerprint, mesh_secure,
+                    mqtt_secure,
+					mqtt_fingerprint,
+					mesh_secure,
 #endif
-                    inTopic, outTopic)
-{
-}
+                    inTopic,
+					outTopic)
+					{}
 
 void ESP8266MQTTMesh::setCallback(std::function<void(const char *topic, const char *msg)> _callback) {
     callback = _callback;
@@ -141,25 +146,9 @@ void ESP8266MQTTMesh::begin() {
         dbgPrintln(EMMDBG_MSG, "outTopic must end with '/'");
         die();
     }
-    if (mqtt_port == 0) {
-#if ASYNC_TCP_SSL_ENABLED
-        mqtt_port = mqtt_secure ? 8883 : 1883;
-#else
-        mqtt_port = 1883;
-#endif
-    }
-    //dbgPrintln(EMMDBG_MSG, "Server: " + mqtt_server);
-    //dbgPrintln(EMMDBG_MSG, "Port: " + String(mqtt_port));
-    //dbgPrintln(EMMDBG_MSG, "User: " + mqtt_username ? mqtt_username : "None");
-    //dbgPrintln(EMMDBG_MSG, "PW: " + mqtt_password? mqtt_password : "None");
-    //dbgPrintln(EMMDBG_MSG, "Secure: " + mqtt_secure ? "True" : "False");
-    //dbgPrintln(EMMDBG_MSG, "Mesh: " + mesh_secure ? "True" : "False");
-    //dbgPrintln(EMMDBG_MSG, "Port: " + String(mesh_port));
 
     dbgPrintln(EMMDBG_MSG_EXTRA, "Starting Firmware " + String(firmware_id, HEX) + " : " + String(firmware_ver));
-#if HAS_OTA
-    dbgPrintln(EMMDBG_MSG_EXTRA, "OTA Start: 0x" + String(freeSpaceStart, HEX) + " OTA End: 0x" + String(freeSpaceEnd, HEX));
-#endif
+
     if (! SPIFFS.begin()) {
       dbgPrintln(EMMDBG_MSG_EXTRA, "Formatting FS");
       SPIFFS.format();
@@ -178,22 +167,23 @@ void ESP8266MQTTMesh::begin() {
     // in WIFI_AP_STA
     WiFi.mode(WIFI_STA);
 
-    wifiConnectHandler     = WiFi.onStationModeGotIP(            [this] (const WiFiEventStationModeGotIP& e) {                this->onWifiConnect(e);    }); 
+    wifiConnectHandler     = WiFi.onStationModeGotIP(            [this] (const WiFiEventStationModeGotIP& e) {                this->onWifiConnect(e);    });
     wifiDisconnectHandler  = WiFi.onStationModeDisconnected(     [this] (const WiFiEventStationModeDisconnected& e) {         this->onWifiDisconnect(e); });
     //wifiDHCPTimeoutHandler = WiFi.onStationModeDHCPTimeout(      [this] () {                                                  this->onDHCPTimeout();     });
     wifiAPConnectHandler   = WiFi.onSoftAPModeStationConnected(  [this] (const WiFiEventSoftAPModeStationConnected& ip) {     this->onAPConnect(ip);     });
     wifiAPDisconnectHandler= WiFi.onSoftAPModeStationDisconnected([this] (const WiFiEventSoftAPModeStationDisconnected& ip) { this->onAPDisconnect(ip);  });
 
-    espClient[0]->setNoDelay(true);
     espClient[0]->onConnect(   [this](void * arg, AsyncClient *c)                           { this->onConnect(c);         }, this);
     espClient[0]->onDisconnect([this](void * arg, AsyncClient *c)                           { this->onDisconnect(c);      }, this);
+    espClient[0]->onPoll(      [this](void * arg, AsyncClient *c)                           { this->onPoll(c);            }, this);
     espClient[0]->onError(     [this](void * arg, AsyncClient *c, int8_t error)             { this->onError(c, error);    }, this);
     espClient[0]->onAck(       [this](void * arg, AsyncClient *c, size_t len, uint32_t time){ this->onAck(c, len, time);  }, this);
     espClient[0]->onTimeout(   [this](void * arg, AsyncClient *c, uint32_t time)            { this->onTimeout(c, time);   }, this);
     espClient[0]->onData(      [this](void * arg, AsyncClient *c, void* data, size_t len)   { this->onData(c, data, len); }, this);
 
     espServer.onClient(     [this](void * arg, AsyncClient *c){ this->onClient(c);  }, this);
-    espServer.setNoDelay(true);
+    //<changed bt HC>espServer.setNoDelay(false);
+
 #if ASYNC_TCP_SSL_ENABLED
     espServer.onSslFileRequest([this](void * arg, const char *filename, uint8_t **buf) -> int { return this->onSslFileRequest(filename, buf); }, this);
     if (mesh_secure) {
@@ -210,9 +200,31 @@ void ESP8266MQTTMesh::begin() {
     mqttClient.onMessage(    [this] (char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total)
                                                                              { this->onMqttMessage(topic, payload, properties, len, index, total); });
     mqttClient.onPublish(    [this] (uint16_t packetId)                      { this->onMqttPublish(packetId); });
-    mqttClient.setServer(mqtt_server, mqtt_port);
-    if (mqtt_username || mqtt_password)
-        mqttClient.setCredentials(mqtt_username, mqtt_password);
+
+    Settings::load(settings);
+
+    String strMqttServer = settings.mqttServer();
+    if (strMqttServer.length() > 0) {
+      int Parts[4] = {0,0,0,0};
+      int Part = 0;
+      for ( int i=0; i<strMqttServer.length(); i++ )
+      {
+      	char c = strMqttServer[i];
+      	if ( c == '.' )
+      	{
+      		Part++;
+      		continue;
+      	}
+      	Parts[Part] *= 10;
+      	Parts[Part] += c - '0';
+      }
+
+      IPAddress mqttServer( Parts[0], Parts[1], Parts[2], Parts[3] );
+      mqttClient.setServer(mqttServer, settings.mqttPort());
+
+      if (settings.mqttUsername.length() > 0 || settings.mqttPassword.length() > 0)
+          mqttClient.setCredentials(settings.mqttUsername.c_str(), settings.mqttPassword.c_str());
+    }
 
 #if ASYNC_TCP_SSL_ENABLED
     mqttClient.setSecure(mqtt_secure);
@@ -222,11 +234,15 @@ void ESP8266MQTTMesh::begin() {
 #endif
     //mqttClient.setCallback([this] (char* topic, byte* payload, unsigned int length) { this->mqtt_callback(topic, payload, length); });
 
-
     dbgPrintln(EMMDBG_WIFI_EXTRA, WiFi.status());
     dbgPrintln(EMMDBG_MSG_EXTRA, "Setup Complete");
     ap_idx = LAST_AP;
+    retry_connect = 1;
     connect();
+
+    //<Added by HC>
+    schedule_check_ack(10.0);
+    //</Added by HC>
 }
 
 bool ESP8266MQTTMesh::isAPConnected(uint8 *mac) {
@@ -273,12 +289,19 @@ void ESP8266MQTTMesh::scan() {
         }
         ap_idx = 0;
         WiFi.disconnect();
-        WiFi.mode(WIFI_STA);
+        //<added by HC>
+        if (!standAloneAP) {
+            WiFi.mode(WIFI_STA);
+        }
+        //</added by HC>
         dbgPrintln(EMMDBG_WIFI, "Scanning for networks");
         WiFi.scanDelete();
         WiFi.scanNetworks(true,true);
         scanning = true;
     }
+    //<added by HC>
+    int knownNetworksFound = 0;
+    //</added by HC>
     int numberOfNetworksFound = WiFi.scanComplete();
     if (numberOfNetworksFound < 0) {
         return;
@@ -297,6 +320,9 @@ void ESP8266MQTTMesh::scan() {
             for(network_idx = 0; networks[network_idx] != NULL && networks[network_idx][0] != 0; network_idx++) {
                 if(strcmp(ssid, networks[network_idx]) == 0) {
                     dbgPrintln(EMMDBG_WIFI, "Matched");
+                    //<added by HC>
+                    knownNetworksFound += 1;
+                    //</added by HC>
                     found = true;
                     break;
                 }
@@ -314,13 +340,29 @@ void ESP8266MQTTMesh::scan() {
                     if (! match_bssid(WiFi.BSSIDstr(i).c_str())) {
                         dbgPrintln(EMMDBG_WIFI, "Failed to match BSSID");
                         continue;
+                    } else {
+                        //<added by HC>
+                        knownNetworksFound += 1;
+                        //</added by HC>
                     }
                 }
             }
         } else {
+
+            //<added by HC>
+            if (standAloneAP) {
+                dbgPrintln(EMMDBG_WIFI, "ESP-AP mode, connect only to Wifi AP");
+                continue;
+            }
+            //</added by HC>
+
             if (! match_bssid(WiFi.BSSIDstr(i).c_str())) {
                 dbgPrintln(EMMDBG_WIFI, "Failed to match BSSID");
                 continue;
+            } else {
+                //<added by HC>
+                knownNetworksFound += 1;
+                //</added by HC>
             }
         }
         dbgPrintln(EMMDBG_WIFI, "RSSI: " + String(WiFi.RSSI(i)));
@@ -342,6 +384,18 @@ void ESP8266MQTTMesh::scan() {
             }
         }
     }
+    //<added by HC>
+    dbgPrintln(EMMDBG_WIFI, "knownNetworksFound: " + String(knownNetworksFound));
+    if (knownNetworksFound > 0) {
+        standAloneAP = false;
+        dbgPrintln(EMMDBG_WIFI, "standAloneAP: " + String(standAloneAP));
+    }
+
+    if (knownNetworksFound == 0 && wifiDisconnectedTime + random(120000, 240000) < millis()) {
+        standAloneAP = true;
+        dbgPrintln(EMMDBG_WIFI, "standAloneAP: " + String(standAloneAP));
+    }
+    //</added by HC>
 }
 
 void ESP8266MQTTMesh::schedule_connect(float delay) {
@@ -355,23 +409,48 @@ void ESP8266MQTTMesh::connect() {
         return;
     }
     connecting = false;
-    retry_connect = 1;
     lastReconnect = millis();
-    if (scanning || ap_idx >= LAST_AP ||  ap[ap_idx].ssid_idx == NETWORK_LAST_INDEX) {
+    //changed by HC:
+    if (standAloneAP || scanning || ap_idx >= LAST_AP ||  ap[ap_idx].ssid_idx == NETWORK_LAST_INDEX) {
         scan();
+        if (ap_idx >= LAST_AP) {
+            // We got a disconnect during scan, we've been rescheduled already
+            return;
+        }
     } if (scanning) {
         schedule_connect(0.5);
         return;
     }
+
+    //<added by HC>
+    if (prevStandAloneAP != standAloneAP) {
+        if (standAloneAP) {
+            Serial.println("Setup AP..." );
+            setup_AP();
+        } else {
+            Serial.println("Shutdown AP..." );
+            shutdown_AP();
+        }
+    }
+    prevStandAloneAP = standAloneAP;
+
+    if (standAloneAP) {
+        schedule_connect(60.0);
+        return;
+    }
+    //</added by HC>
     if (ap[ap_idx].ssid_idx == NETWORK_LAST_INDEX) {
         // No networks found, try again
         schedule_connect();
         return;
-    }    
+    }
     for (int i = 0; i < LAST_AP; i++) {
+        if (ap[i].ssid_idx == NETWORK_LAST_INDEX)
+            break;
         dbgPrintln(EMMDBG_WIFI, String(i) + String(i == ap_idx ? " * " : "   ") + String(ap[i].bssid) + " " + String(ap[i].rssi));
     }
     char ssid[64];
+    dbgPrintln(EMMDBG_WIFI, String("ap[ap_idx].ssid_idx: ") + String(ap[ap_idx].ssid_idx));
     if (ap[ap_idx].ssid_idx == NETWORK_MESH_NODE) {
         //This is a mesh node
         char subdomain_c[8];
@@ -390,7 +469,13 @@ void ESP8266MQTTMesh::connect() {
         meshConnect = true;
     } else {
         strlcpy(ssid, networks[ap[ap_idx].ssid_idx], sizeof(ssid));
-        meshConnect = false;
+        //<changed by HC>
+        if (strcmp(networks[ap[ap_idx].ssid_idx], "ESP-AP") == 0) {
+          meshConnect = true;
+        } else {
+          meshConnect = false;
+        }
+        //</changed by HC>
     }
     dbgPrintln(EMMDBG_WIFI, "Connecting to SSID : '" + String(ssid) + "' BSSID '" + String(ap[ap_idx].bssid) + "'");
     const char *password = meshConnect ? mesh_password : network_password;
@@ -402,6 +487,9 @@ void ESP8266MQTTMesh::connect() {
 
 void ESP8266MQTTMesh::parse_message(const char *topic, const char *msg) {
   int inTopicLen = strlen(inTopic);
+
+  dbgPrintln(EMMDBG_MQTT, "Parse " + String(topic) + " " + String(msg));
+
   if (strstr(topic, inTopic) != topic) {
       return;
   }
@@ -432,60 +520,79 @@ void ESP8266MQTTMesh::parse_message(const char *topic, const char *msg) {
       }
       return;
   }
-  else if (strstr(subtopic ,"ota/") == subtopic) {
-#if HAS_OTA
-      const char *cmd = subtopic + 4;
-      handle_ota(cmd, msg);
-#endif
-      return;
-  }
   if (! callback) {
       return;
   }
-  int mySSIDLen = strlen(mySSID);
-  if(strstr(subtopic, mySSID) == subtopic) {
-      //Only handle messages addressed to this node
-      callback(subtopic + mySSIDLen, msg);
-  }
-  else if(strstr(subtopic, "broadcast/") == subtopic) {
+
+  callback(topic, msg);
+
+  if(strstr(subtopic, "broadcast/") == subtopic) {
       //Or messages sent to all nodes
       callback(subtopic + 10, msg);
   }
 }
 
+void ESP8266MQTTMesh::schedule_connect_mqtt(float delay) {
+    dbgPrintln(EMMDBG_WIFI, "Scheduling connect_mqtt for " + String(delay, 2)+ " seconds from now");
+    schedule.once(delay, connect_mqtt, this);
+}
 
 void ESP8266MQTTMesh::connect_mqtt() {
-    dbgPrintln(EMMDBG_MQTT, "Attempting MQTT connection (" + mqtt_server + ":" + String(mqtt_port) + ")...");
+
     // Attempt to connect
-    mqttClient.connect();
+    if (!mqttClient.connected() && settings.mqttServer().length() > 0) {
+      dbgPrintln(EMMDBG_MQTT, "Attempting MQTT connection (" + settings.mqttServer() + ":" + String(settings.mqttPort()) + ")...");
+      mqttClient.connect();
+      schedule_connect_mqtt(1.0);
+    }
 }
 
 
-void ESP8266MQTTMesh::publish(const char *subtopic, const char *msg) {
-    char topic[64];
-    strlcpy(topic, outTopic, sizeof(topic));
-    strlcat(topic, mySSID, sizeof(topic));
-    strlcat(topic, subtopic, sizeof(topic));
+void ESP8266MQTTMesh::publish(const char *subtopic, const char *msg, const bool retain) {
+    char topic[TOPIC_LEN];
+    //strlcpy(topic, outTopic, sizeof(topic)); //HC: outtopic is added earlier already
+    //strlcat(topic, mySSID, sizeof(topic));
+    strlcpy(topic, subtopic, sizeof(topic));
     dbgPrintln(EMMDBG_MQTT_EXTRA, "Sending: " + String(topic) + "=" + String(msg));
-    if (! meshConnect) {
-        mqttClient.publish(topic, 0, false, msg);
-    } else {
+    //<added by HC>
+    if ((standAloneAP || mqttDisConnect) && !meshConnect) {
+      dbgPrintln(EMMDBG_MQTT, "standAloneAP || mqttDisConnect");
+	     if (strstr(topic, inTopic)) {
+        dbgPrintln(EMMDBG_MQTT, "Send  inTopic message to clients espClient[1-4]...");
+        for (int i = 1; i <= ESP8266_NUM_CLIENTS; i++) {
+          if (espClient[i]) {
+            send_message(i, topic, msg);
+          }
+        }
+      }
+    } else if (meshConnect) {
+        dbgPrintln(EMMDBG_MQTT, "Send message to upper espClient[0]...");
         send_message(0, topic, msg);
+    } else {
+        dbgPrintln(EMMDBG_MQTT, "Send message to MQTT server...");
+        mqttClient.publish(topic, 0, retain, msg);
     }
+    //</added by HC>
 }
 
 void ESP8266MQTTMesh::shutdown_AP() {
-    if(! AP_ready)
+    if(!AP_ready)
         return;
-    for (int i = 1; i <= ESP8266_NUM_CLIENTS; i++) {
-        if(espClient[i]) {
-            delete espClient[i];
-            espClient[i] = NULL;
-        }
-    }
+    //<Disabled by HC: this is also done already by OnDisconnected function, doing twice causes crash>
+    //for (int i = 1; i <= ESP8266_NUM_CLIENTS; i++) {
+        // if(espClient[i]) {
+        //     dbgPrintln(EMMDBG_MSG_EXTRA, "Deleting espClient[i]: " + String(i));
+        //     espClient[i]->close(true);
+        //     delete espClient[i];
+        //     espClient[i] = NULL;
+        // }
+    //}
+    //</Disabled by HC>
+    dbgPrintln(EMMDBG_MSG_EXTRA, "AP disconnecting...");
+    AP_ready = false;
     WiFi.softAPdisconnect(true);
     WiFi.mode(WIFI_STA);
-    AP_ready = false;
+    dbgPrintln(EMMDBG_MSG_EXTRA, "AP disconnecting done");
 }
 
 void ESP8266MQTTMesh::setup_AP() {
@@ -507,11 +614,22 @@ void ESP8266MQTTMesh::setup_AP() {
     IPAddress apSubmask(255, 255, 255, 0);
     WiFi.mode(WIFI_AP_STA);
     WiFi.softAPConfig(apIP, apGateway, apSubmask);
-    WiFi.softAP(mySSID, mesh_password, WiFi.channel(), 1);
-    dbgPrintln(EMMDBG_WIFI, "Initialized AP as '" + String(mySSID) + "'  IP '" + apIP.toString() + "'");
+
+    //<added by HC>
+    if (standAloneAP) {
+        WiFi.softAP("ESP-AP", mesh_password, WiFi.channel(), 0);
+        dbgPrintln(EMMDBG_WIFI, "Initialized AP as 'ESP-AP " + apIP.toString() + "'");
+    } else {
+        WiFi.softAP(mySSID, network_password, WiFi.channel(), 1);
+        dbgPrintln(EMMDBG_WIFI, "Initialized AP as '" + String(mySSID) + "'  IP '" + apIP.toString() + "'");
+    }
+    //</added by HC>
+
     strlcat(mySSID, "/", sizeof(mySSID));
     if (meshConnect) {
-        publish("mesh_cmd", "request_bssid");
+        //<changed by HC>
+        publish("mesh_cmd", "request_bssid", false);
+        //</changed by HC>
     }
     connecting = false; //Connection complete
     AP_ready = true;
@@ -572,17 +690,50 @@ void ESP8266MQTTMesh::assign_subdomain() {
     }
 }
 
-bool ESP8266MQTTMesh::send_message(int index, const char *topicOrMsg, const char *msg) {
-    int topicLen = strlen(topicOrMsg);
-    int msgLen = 0;
-    int len = topicLen;
-    espClient[index]->write(topicOrMsg);
-    if (msg) {
-        espClient[index]->write("=", 1);
-        espClient[index]->write(msg);
+//<Added by HC>
+void ESP8266MQTTMesh::schedule_check_ack(float delay) {
+    //dbgPrintln(EMMDBG_WIFI, "Scheduling ack check for " + String(delay, 2) + " millis from now");
+    checkAckTicker.once(delay, check_ack, this);
+}
+
+void ESP8266MQTTMesh::check_ack() {
+  for (uint8_t idx = 0; idx <= 4; idx++) {
+    if (ackTimer[idx] != 0 && millis() - ackTimer[idx] > 10000) {
+      if (idx == 0 && meshConnect && !standAloneAP) {
+        dbgPrintln(EMMDBG_MQTT, "Ack timeout to mesh, WiFi.disconnect()");
+        WiFi.disconnect();
+        meshConnect = false;
+        schedule_connect();
+      } else {
+        if (espClient[idx]) {
+          dbgPrintln(EMMDBG_MQTT, "Ack timeout, closing espclient: " + String(idx));
+          espClient[idx]->free();
+          espClient[idx]->close(true);
+        }
+      }
+      ackTimer[idx] = 0;
     }
-    espClient[index]->write("\0", 1);
-    return true;
+  }
+  schedule_check_ack(10.0);
+  dbgPrintln(EMMDBG_MQTT, "ESP.getFreeHeap(): " + String(ESP.getFreeHeap()));
+}
+//</Added by HC>
+
+bool ESP8266MQTTMesh::send_message(int index, const char *topicOrMsg, const char *msg) {
+
+  dbgPrintln(EMMDBG_MQTT, "index: " + String(index));
+  dbgPrintln(EMMDBG_MQTT, "topicOrMsg: " + String(topicOrMsg));
+  dbgPrintln(EMMDBG_MQTT, "msg: " + String(msg));
+
+  espClient[index]->write(topicOrMsg);
+  if (msg) {
+      espClient[index]->write("=", 1);
+      espClient[index]->write(msg);
+  }
+  espClient[index]->write("\0", 1);
+
+  ackTimer[index] = millis();
+  return true;
 }
 
 void ESP8266MQTTMesh::broadcast_message(const char *topicOrMsg, const char *msg) {
@@ -595,9 +746,12 @@ void ESP8266MQTTMesh::broadcast_message(const char *topicOrMsg, const char *msg)
 
 void ESP8266MQTTMesh::send_bssids(int idx) {
     Dir dir = SPIFFS.openDir("/bssid/");
-    char msg[TOPIC_LEN];
+    char msg[128];
     char subdomainStr[4];
     while(dir.next()) {
+        //<added by HC>
+        wdt_reset();
+        //<added by HC>
         int subdomain = read_subdomain(dir.fileName().c_str());
         if (subdomain == -1) {
             continue;
@@ -614,6 +768,9 @@ void ESP8266MQTTMesh::send_bssids(int idx) {
 
 
 void ESP8266MQTTMesh::handle_client_data(int idx, char *data) {
+            //<added by HC>
+            wdt_reset();
+            //<added by HC>
             dbgPrintln(EMMDBG_MQTT, "Received: msg from " + espClient[idx]->remoteIP().toString() + " on " + (idx == 0 ? "STA" : "AP"));
             dbgPrintln(EMMDBG_MQTT_EXTRA, "--> '" + String(data) + "'");
             char topic[64];
@@ -622,20 +779,27 @@ void ESP8266MQTTMesh::handle_client_data(int idx, char *data) {
                 dbgPrintln(EMMDBG_MQTT, "Failed to handle message");
                 return;
             }
-            if (idx == 0) {
-                //This is a packet from MQTT, need to rebroadcast to each connected station
-                broadcast_message(data);
+            if (idx == 0 || standAloneAP || mqttDisConnect) {
+                //This is a packet from MQTT or to inTopic from Mesh, need to rebroadcast to each connected station
+                if (strstr(topic, inTopic)) {
+                  if (!strstr(topic, "bssid/")) {
+                    dbgPrintln(EMMDBG_MQTT, "Broadcast incoming message...");
+                    broadcast_message(data);
+                  }
+                }
                 parse_message(topic, msg);
             } else {
-                if (strstr(topic,"/mesh_cmd")  == topic + strlen(topic) - 9) {
+                if (strstr(topic, "mesh_cmd")) {
                     // We will handle this packet locally
-                    if (0 == strcmp(msg, "request_bssid")) {
+                    if (strstr(msg, "request_bssid")) {
                         send_bssids(idx);
                     }
                 } else {
-                    if (! meshConnect) {
+                    if (!meshConnect) {
+                        dbgPrintln(EMMDBG_MQTT, "Send message to MQTT server...");
                         mqttClient.publish(topic, 0, false, msg);
                     } else {
+                        dbgPrintln(EMMDBG_MQTT, "Send message to root AP...");
                         send_message(0, data);
                     }
                 }
@@ -658,183 +822,6 @@ bool ESP8266MQTTMesh::keyValue(const char *data, char separator, char *key, int 
   return false;
 }
 
-ota_info_t ESP8266MQTTMesh::parse_ota_info(const char *str) {
-    ota_info_t ota_info;
-    memset (&ota_info, 0, sizeof(ota_info));
-    char kv[64];
-    while(str) {
-        keyValue(str, ',', kv, sizeof(kv), &str);
-        dbgPrintln(EMMDBG_OTA_EXTRA, "Key/Value: " + String(kv));
-        char key[32];
-        const char *value;
-        if (! keyValue(kv, ':', key, sizeof(key), &value)) {
-            dbgPrintln(EMMDBG_OTA, "Failed to parse Key/Value: " + String(kv));
-            continue;
-        }
-        dbgPrintln(EMMDBG_OTA_EXTRA, "Key: " + String(key) + " Value: " + String(value));
-        if (0 == strcmp(key, "len")) {
-            ota_info.len = strtoul(value, NULL, 10);
-        } else if (0 == strcmp(key, "md5")) {
-            if(strlen(value) == 24 && base64_dec_len(value, 24) == 16) {
-              base64_decode((char *)ota_info.md5, value,  24);
-            } else {
-              dbgPrintln(EMMDBG_OTA, "Failed to parse md5");
-            }
-        }
-    }
-    return ota_info;
-}
-bool ESP8266MQTTMesh::check_ota_md5() {
-    uint8_t buf[128];
-    File f = SPIFFS.open("/ota", "r");
-    buf[f.readBytesUntil('\n', buf, sizeof(buf)-1)] = 0;
-    f.close();
-    dbgPrintln(EMMDBG_OTA_EXTRA, "Read /ota: " + String((char *)buf));
-    ota_info_t ota_info = parse_ota_info((char *)buf);
-    if (ota_info.len > freeSpaceEnd - freeSpaceStart) {
-        return false;
-    }
-    MD5Builder _md5;
-    _md5.begin();
-    uint32_t address = freeSpaceStart;
-    unsigned int len = ota_info.len;
-    while(len) {
-        int size = len > sizeof(buf) ? sizeof(buf) : len;
-        if (! ESP.flashRead(address, (uint32_t *)buf, (size + 3) & ~3)) {
-            return false;
-        }
-        _md5.add(buf, size);
-        address += size;
-        len -= size;
-    }
-    _md5.calculate();
-    _md5.getBytes(buf);
-    for (int i = 0; i < 16; i++) {
-        if (buf[i] != ota_info.md5[i]) {
-            return false;
-        }
-    }
-    return true;
-}
-
-void ESP8266MQTTMesh::erase_sector() {
-    int start = freeSpaceStart / FLASH_SECTOR_SIZE;
-    //erase flash area here
-    ESP.flashEraseSector(nextErase--);
-    if (nextErase >= start) {
-        schedule.once(0.0, erase_sector, this);
-    } else {
-        nextErase = 0;
-        dbgPrintln(EMMDBG_OTA, "Erase complete in " +  String((micros() - startTime) / 1000000.0, 6) + " seconds");
-    }
-}
-
-void ESP8266MQTTMesh::handle_ota(const char *cmd, const char *msg) {
-    char *end;
-    unsigned int id = strtoul(cmd,&end, 16);
-
-    dbgPrintln(EMMDBG_OTA_EXTRA, "OTA cmd " + String(cmd) + " Length: " + String(strlen(msg)));
-    if (id != firmware_id || *end != '/') {
-        dbgPrintln(EMMDBG_OTA, "Ignoring OTA because firmwareID did not match " + String(firmware_id, HEX));
-        return;
-    }
-    cmd += (end - cmd) + 1; //skip ID
-    if(0 == strcmp(cmd, "start")) {
-        dbgPrintln(EMMDBG_OTA_EXTRA, "OTA Start");
-        ota_info_t ota_info = parse_ota_info(msg);
-        if (ota_info.len == 0) {
-            dbgPrintln(EMMDBG_OTA, "Ignoring OTA because firmware length = 0");
-            return;
-        }
-        dbgPrintln(EMMDBG_OTA, "-> " + String(msg));
-        File f = SPIFFS.open("/ota", "w");
-        f.print(msg);
-        f.print("\n");
-        f.close();
-        f = SPIFFS.open("/ota", "r");
-        char buf[128];
-        buf[f.readBytesUntil('\n', buf, sizeof(buf)-1)] = 0;
-        f.close();
-        dbgPrintln(EMMDBG_OTA, "--> " + String(buf));
-        if (ota_info.len > freeSpaceEnd - freeSpaceStart) {
-            dbgPrintln(EMMDBG_MSG, "Not enough space for firmware: " + String(ota_info.len) + " > " + String(freeSpaceEnd - freeSpaceStart));
-            return;
-        }
-        uint32_t end = (freeSpaceStart + ota_info.len + FLASH_SECTOR_SIZE - 1) & (~(FLASH_SECTOR_SIZE - 1));
-        nextErase = end / FLASH_SECTOR_SIZE - 1;
-        startTime = micros();
-        dbgPrintln(EMMDBG_OTA, "Erasing " + String((end - freeSpaceStart)/ FLASH_SECTOR_SIZE) + " sectors");
-        schedule.once(0.0, erase_sector, this);
-    }
-    else if(0 == strcmp(cmd, "check")) {
-        if (strlen(msg) > 0) {
-            char out[33];
-            MD5Builder _md5;
-            _md5.begin();
-            _md5.add((uint8_t *)msg, strlen(msg));
-            _md5.calculate();
-            _md5.getChars(out);
-            publish("check", out);
-        } else {
-            const char *md5ok = check_ota_md5() ? "MD5 Passed" : "MD5 Failed";
-            dbgPrintln(EMMDBG_OTA, md5ok);
-            publish("check", md5ok);
-        }
-    }
-    else if(0 == strcmp(cmd, "flash")) {
-        if (! check_ota_md5()) {
-            dbgPrintln(EMMDBG_MSG, "Flash failed due to md5 mismatch");
-            publish("flash", "Failed");
-            return;
-        }
-        uint8_t buf[128];
-        File f = SPIFFS.open("/ota", "r");
-        buf[f.readBytesUntil('\n', buf, sizeof(buf)-1)] = 0;
-        ota_info_t ota_info = parse_ota_info((char *)buf);
-        dbgPrintln(EMMDBG_OTA, "Flashing");
-        
-        eboot_command ebcmd;
-        ebcmd.action = ACTION_COPY_RAW;
-        ebcmd.args[0] = freeSpaceStart;
-        ebcmd.args[1] = 0x00000;
-        ebcmd.args[2] = ota_info.len;
-        eboot_command_write(&ebcmd);
-        //publish("flash", "Success");
-
-        shutdown_AP();
-        mqttClient.disconnect();
-        delay(100);
-        ESP.restart();
-        die();
-    }
-    else {
-        char *end;
-        unsigned int address = strtoul(cmd, &end, 10);
-        if (address > freeSpaceEnd - freeSpaceStart || end != cmd + strlen(cmd)) {
-            dbgPrintln(EMMDBG_MSG, "Illegal address " + String(address) + " specified");
-            return;
-        }
-        int msglen = strlen(msg);
-        if (msglen > 1024) {
-            dbgPrintln(EMMDBG_MSG, "Message length " + String(msglen) + " too long");
-            return;
-        }
-        byte data[768];
-        long t = micros();
-        int len = base64_decode((char *)data, msg, msglen);
-        if (address + len > freeSpaceEnd) {
-            dbgPrintln(EMMDBG_MSG, "Message length would run past end of free space");
-            return;
-        }
-        dbgPrintln(EMMDBG_OTA_EXTRA, "Got " + String(len) + " bytes FW @ " + String(address, HEX));
-        bool ok = ESP.flashWrite(freeSpaceStart + address, (uint32_t*) data, len);
-        dbgPrintln(EMMDBG_OTA, "Wrote " + String(len) + " bytes in " +  String((micros() - t) / 1000000.0, 6) + " seconds");
-        if (! ok) {
-            dbgPrintln(EMMDBG_MSG, "Failed to write firmware at " + String(freeSpaceStart + address, HEX) + " Length: " + String(len));
-        }
-    }
-}
-
 void ESP8266MQTTMesh::onWifiConnect(const WiFiEventStationModeGotIP& event) {
     if (meshConnect) {
         dbgPrintln(EMMDBG_WIFI, "Connecting to mesh: " + WiFi.gatewayIP().toString() + " on port: " + String(mesh_port));
@@ -851,7 +838,12 @@ void ESP8266MQTTMesh::onWifiConnect(const WiFiEventStationModeGotIP& event) {
 }
 
 void ESP8266MQTTMesh::onWifiDisconnect(const WiFiEventStationModeDisconnected& event) {
-    //Reasons are here: ESP8266WiFiType.h-> WiFiDisconnectReason 
+
+    //<added by HC>
+    wifiDisconnectedTime = millis();
+    //</added by HC>
+
+    //Reasons are here: ESP8266WiFiType.h-> WiFiDisconnectReason
     dbgPrintln(EMMDBG_WIFI, "Disconnected from Wi-Fi: " + event.ssid + " because: " + String(event.reason));
     WiFi.disconnect();
     if (! connecting) {
@@ -881,16 +873,15 @@ void ESP8266MQTTMesh::onAPDisconnect(const WiFiEventSoftAPModeStationDisconnecte
 void ESP8266MQTTMesh::onMqttConnect(bool sessionPresent) {
     dbgPrintln(EMMDBG_MQTT, "MQTT Connected");
     // Once connected, publish an announcement...
-    char msg[64];
     char id[9];
-    itoa(firmware_id, id, 16);
-    strlcpy(msg, "Connected FW: ", sizeof(msg));
-    strlcat(msg, id, sizeof(msg));
-    strlcat(msg, " : ", sizeof(msg));
-    strlcat(msg, firmware_ver, sizeof(msg));
-    //strlcpy(publishMsg, outTopic, sizeof(publishMsg));
-    //strlcat(publishMsg, WiFi.localIP().toString().c_str(), sizeof(publishMsg));
-    mqttClient.publish("connect", 0, false, msg);
+	char topic[128];
+    char msg[64];
+
+	itoa(firmware_id, id, 16);
+    snprintf(topic, sizeof(topic), "%sstate/%s/connect", outTopic, WiFi.macAddress().c_str());
+    snprintf(msg, sizeof(msg), "Connected node : %s", WiFi.localIP().toString().c_str());
+
+    mqttClient.publish(topic, 0, true, msg);
     // ... and resubscribe
     char subscribe[TOPIC_LEN];
     strlcpy(subscribe, inTopic, sizeof(subscribe));
@@ -903,6 +894,9 @@ void ESP8266MQTTMesh::onMqttConnect(bool sessionPresent) {
         //If we don't get a mapping for our BSSID within 10 seconds, define one
         schedule.once(10.0, assign_subdomain, this);
     }
+    //<added byHC>
+    mqttDisConnect = false;
+    //</added byHC>
 }
 
 void ESP8266MQTTMesh::onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
@@ -913,13 +907,21 @@ void ESP8266MQTTMesh::onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
         dbgPrintln(EMMDBG_MQTT, "Bad MQTT server fingerprint.");
         if (WiFi.isConnected()) {
             WiFi.disconnect();
+            schedule_connect();
         }
         return;
     }
 #endif
-    shutdown_AP();
+    //shutdown_AP();
     if (WiFi.isConnected()) {
-        connect_mqtt();
+
+        //<added byHC>
+        if (!mqttDisConnect) {
+            connect_mqtt();
+            mqttDisConnect = true;
+            mqttDisconnectedTime = millis();
+        }
+        //</added byHC>
     }
 }
 
@@ -938,8 +940,11 @@ void ESP8266MQTTMesh::onMqttUnsubscribe(uint16_t packetId) {
 }
 
 void ESP8266MQTTMesh::onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) {
+  //<added by HC>
+  wdt_reset();
+  //<added by HC>
   memcpy(inbuffer[0], payload, len);
-  inbuffer[0][len]= 0;
+  inbuffer[0][len]= '\0';
   dbgPrintln(EMMDBG_MQTT_EXTRA, "Message arrived [" + String(topic) + "] '" + String(inbuffer[0]) + "'");
   broadcast_message(topic, inbuffer[0]);
   parse_message(topic, inbuffer[0]);
@@ -973,9 +978,13 @@ int ESP8266MQTTMesh::onSslFileRequest(const char *filename, uint8_t **buf) {
 #endif
 void ESP8266MQTTMesh::onClient(AsyncClient* c) {
     dbgPrintln(EMMDBG_WIFI, "Got client connection from: " + c->remoteIP().toString());
+
     for (int i = 1; i <= ESP8266_NUM_CLIENTS; i++) {
-        if (! espClient[i]) {
+        if (!espClient[i]) {
             espClient[i] = c;
+
+            //<changed bt HC>espClient[i]->setNoDelay(false);
+
             espClient[i]->onDisconnect([this](void * arg, AsyncClient *c)                           { this->onDisconnect(c);      }, this);
             espClient[i]->onError(     [this](void * arg, AsyncClient *c, int8_t error)             { this->onError(c, error);    }, this);
             espClient[i]->onAck(       [this](void * arg, AsyncClient *c, size_t len, uint32_t time){ this->onAck(c, len, time);  }, this);
@@ -1007,6 +1016,7 @@ void ESP8266MQTTMesh::onConnect(AsyncClient* c) {
 
         if (!sslFoundFingerprint) {
             dbgPrintln(EMMDBG_WIFI, "Couldn't match SSL fingerprint");
+            c->free();
             c->close(true);
             return;
         }
@@ -1020,25 +1030,49 @@ void ESP8266MQTTMesh::onConnect(AsyncClient* c) {
 
 void ESP8266MQTTMesh::onDisconnect(AsyncClient* c) {
     if (c == espClient[0]) {
+
+		//<added by HC>
+        wifiDisconnectedTime = millis();
+        //</added by HC>
+
         dbgPrintln(EMMDBG_WIFI, "Disconnected from mesh");
         shutdown_AP();
         WiFi.disconnect();
+        schedule_connect();
         return;
     }
     for (int i = 1; i <= ESP8266_NUM_CLIENTS; i++) {
         if (c == espClient[i]) {
             dbgPrintln(EMMDBG_WIFI, "Disconnected from AP");
-            delete espClient[i];
-            espClient[i] = NULL;
+
+            //<Modified by HC to avoid crashing>
+            if (espClient[i]) {
+        	    dbgPrintln(EMMDBG_MSG_EXTRA, "Deleting espClient[i]: " + String(i));
+              espClient[i]->free();
+              delete c;
+              espClient[i] = NULL;
+              dbgPrintln(EMMDBG_MSG_EXTRA, "Deleting espClient[i] done");
+            }
+            //</Modified by HC>
         }
     }
     dbgPrintln(EMMDBG_WIFI, "Disconnected unknown client");
+}
+void ESP8266MQTTMesh::onPoll(AsyncClient* c) {
+    //dbgPrintln(EMMDBG_WIFI, "Got poll on " + c->remoteIP().toString());
 }
 void ESP8266MQTTMesh::onError(AsyncClient* c, int8_t error) {
     dbgPrintln(EMMDBG_WIFI, "Got error on " + c->remoteIP().toString() + ": " + String(error));
 }
 void ESP8266MQTTMesh::onAck(AsyncClient* c, size_t len, uint32_t time) {
     dbgPrintln(EMMDBG_WIFI_EXTRA, "Got ack on " + c->remoteIP().toString() + ": " + String(len) + " / " + String(time));
+    for (int idx = 0; idx <= ESP8266_NUM_CLIENTS; idx++) {
+        if (espClient[idx] == c) {
+            dbgPrintln(EMMDBG_WIFI_EXTRA, "Reset ack timer on espClient " + String(idx));
+            ackTimer[idx] = 0;
+            return;
+        }
+    }
 }
 
 void ESP8266MQTTMesh::onTimeout(AsyncClient* c, uint32_t time) {
@@ -1049,6 +1083,7 @@ void ESP8266MQTTMesh::onTimeout(AsyncClient* c, uint32_t time) {
 void ESP8266MQTTMesh::onData(AsyncClient* c, void* data, size_t len) {
     dbgPrintln(EMMDBG_WIFI_EXTRA, "Got data from " + c->remoteIP().toString());
     for (int idx = meshConnect ? 0 : 1; idx <= ESP8266_NUM_CLIENTS; idx++) {
+
         if (espClient[idx] == c) {
             char *dptr = (char *)data;
             for (int i = 0; i < len; i++) {
