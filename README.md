@@ -1,3 +1,9 @@
+Modified version of PhracturedBlue ESP8266MQTTMesh for use with MiLight Wall Switch ():
+-mqtt server / port / username / password variables are parsed from the Settings Object.
+-removed OTA support to save some memory, updates can be achieved by a temporary router with the network SSID.
+-when the Wifi is down the mesh network will create an own mesh networks after some minutes.
+-making the mesh more stable with 10 or more mesh nodes.
+
 # ESP8266MQTTMesh
 Self-assembling mesh network built around the MQTT protocol for the ESP8266 with OTA support
 
@@ -11,14 +17,6 @@ any additional security, but does minimize the clutter of other WiFi clients in 
 Additionally the library provides an OTA mechanism using the MQTT pathway which can update any/all nodes on the mesh.
 
 This code was developed primarily for teh Sonoff line of relays, but should work with any ESP8266 board with sufficient flash memory
-
-## OTA
-While all nodes must run the same version of the ESP8622MQTTMesh library, each node may run a unique firmware with independent purposes.
-The main purpose behind this library was to provide a backbone on which several home-automation sensors could be built.  As such
-each node may need different code to achieve its purpose.  Because firmwares are large, and memory is limited on the ESP8266 platform,
-there is only a single memory area to hold the incoming firmware.  To ensure that a given firmware is only consumed by the proper nodes,
-The firmware defines a unique identifier that distinguishes itself from other code.  A given firmware is broadcast from the MQTT
-broker to all nodes, but only nodes with a matching ID will update.
 
 ## Using the Library
 ### Prerequisites
