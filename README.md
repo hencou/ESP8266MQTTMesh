@@ -2,10 +2,10 @@ Modified version of PhracturedBlue's ESP8266MQTTMesh for use in conjunction with
 
 Changes:
 
-*mqtt server / port / username / password variables are parsed from the Milight Hub Settings Object.
-*removed OTA support to save some memory, updates can be achieved with a temporary router with the same network SSID.
-*when the Wifi is down the mesh network will create an own mesh networks after some minutes.
-*making the mesh more stable with 10 or more mesh nodes.
+* mqtt server / port / username / password variables are parsed from the Milight Hub Settings Object.
+* removed OTA support to save some memory, updates can be achieved with a temporary router with the same network SSID.
+* when the Wifi is down the mesh network will create an own mesh networks after some minutes.
+* making the mesh more stable with 10 or more mesh nodes.
 
 Original text from PhracturedBlue's ESP8266MQTTMesh:
 
