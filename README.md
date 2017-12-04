@@ -2,7 +2,6 @@ Modified version of PhracturedBlue's ESP8266MQTTMesh for use in conjunction with
 
 Changes:
 
-* mqtt server / port / username / password variables are parsed from the Milight Hub Settings Object.
 * removed OTA support to save some memory, updates can be achieved with a temporary router with the same network SSID.
 * when the Wifi is down the mesh network will create an own mesh networks after some minutes.
 * making the mesh more stable with 10 or more mesh nodes.
@@ -10,7 +9,7 @@ Changes:
 Original text from PhracturedBlue's ESP8266MQTTMesh:
 
 # ESP8266MQTTMesh
-Self-assembling mesh network built around the MQTT protocol for the ESP8266.
+Self-assembling mesh network built around the MQTT protocol for the ESP8266 with OTA support
 
 ## Overview
 Provide a library that can build a mesh network between ESP8266 devices that will allow all nodes to communicate with an MQTT broker.
@@ -23,28 +22,41 @@ Additionally the library provides an OTA mechanism using the MQTT pathway which 
 
 This code was developed primarily for teh Sonoff line of relays, but should work with any ESP8266 board with sufficient flash memory
 
+## OTA
+While all nodes must run the same version of the ESP8622MQTTMesh library, each node may run a unique firmware with independent purposes.
+The main purpose behind this library was to provide a backbone on which several home-automation sensors could be built.  As such
+each node may need different code to achieve its purpose.  Because firmwares are large, and memory is limited on the ESP8266 platform,
+there is only a single memory area to hold the incoming firmware.  To ensure that a given firmware is only consumed by the proper nodes,
+The firmware defines a unique identifier that distinguishes itself from other code.  A given firmware is broadcast from the MQTT
+broker to all nodes, but only nodes with a matching ID will update.
+
 ## Using the Library
 ### Prerequisites
 This library has been converted to use Asynchronous communication for imroved reliability.  It requires the following libraries to be installed
 * AsyncMqttClient
 * ESPAsyncTCP
-
-If SSL support is required, the development (staging) branch of the esp8266 library is also needed.
-If using platformio, this can be installed via these [instructions](http://docs.platformio.org/en/latest/platforms/espressif8266.html#using-arduino-framework-with-staging-version).
+* Development (staging) branch of esp8266 library
+  (If using platformio, this can be installed via these [instructions](http://docs.platformio.org/en/latest/platforms/espressif8266.html#using-arduino-framework-with-staging-version)).
 
 **NOTE:** Enabling SSL will add ~70kB to the firmware size, and may make it impossible to use OTA updates depending on firmware and flash size.
 
+If OTA support is desired, the esp8266 module must have at least 1M or Flash (configured as 784k ROM, 256k SPIFFS).  The OTA image is stored
+between the end of the firmware image and the beginning of the filesystem (i.e. not in the filesystem itself).  Thus, for a 1M Flash, the firmware can
+be no larger than ~390kB
+
 ### Library initialization
-The ESP8266MQTTMesh only requires 2 parameters to initialize, but there are many additional optional parameters:
+The ESP8266MQTTMesh only requires 3 parameters to initialize, but there are many additional optional parameters:
 ```
-ESP8266MQTTMesh mesh = ESP8266MQTTMesh::Builder(networks, network_password).build();
+ESP8266MQTTMesh mesh = ESP8266MQTTMesh::Builder(networks, network_password, mqtt_server, mqtt_port).build();
 ```
 - `const char *networks[]` *Required*: A list of ssids to search for to connect to the wireless network.  the list should be terminated with an empty string
 - `const char *network_password` *Required*: The password to use when connecting to the Wifi network.  Only a single password is supported, even if multiple SSIDs are specified
+- `const char *mqtt_server` *Required*: Host which runs the MQTT broker
+- `int mqtt_port` *Optional*: Port which the MQTT broker is running on.  Defaults to 1883 if MQTT SSL is not enabled.  Defaults to 8883 is MQTT SSL is enabled
 
 Additional Parameters can be enabled via the *Builder* for example:
 ```
-ESP8266MQTTMesh mesh = ESP8266MQTTMesh::Builder(networks, network_password)
+ESP8266MQTTMesh mesh = ESP8266MQTTMesh::Builder(networks, network_password, mqtt_server, mqtt_port)
                        .setVersion(firmware_ver, firmware_id)
                        .setMeshPassword(password)
                        .build()
@@ -57,6 +69,12 @@ setVersion(firmware_ver, firmware_id)
 ```
 - `const char *firmware_ver`: This is a string that idenitfies the firmware.  It can be whatever you like.  It will be broadcast to the MQTT broker on successful connection
 - `int firmware_id`:  This identifies a specific node codebase.  Each unique firmware should have its own id, and it should not be changed between revisions of the code
+
+```
+setMqttAuth(username, password)
+```
+- `const char *username`: The username used to login to the MQTT broker
+- `const char *password`: The password used to login to the MQTT broker
 
 ```
 setMeshPassword(password)
@@ -92,7 +110,7 @@ setMeshSSL(enable)
 - `bool enable`: Enable SSL connection between mesh nodes
 
 ### Interacting with the mesh
-Besides the constructor, the code must call the `begin()` method during setup, and the `loop()` method in the main loop
+Besides the constructor, he code must call the `begin()` method during setup, and the `loop()` method in the main loop
 
 If messages need to be received by the node, execute the `callback()` function during setup with a function pointer
 (prototype: `void callback(const char *topic, const char *payload)`)

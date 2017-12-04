@@ -13,7 +13,6 @@
 #include <Ticker.h>
 #include <FS.h>
 #include <functional>
-#include <Settings.h>
 
 #define TOPIC_LEN 64
 
@@ -24,6 +23,8 @@
 #define EMMDBG_WIFI_EXTRA    (EMMDBG_EXTRA | EMMDBG_WIFI)
 #define EMMDBG_MQTT          0x00000004
 #define EMMDBG_MQTT_EXTRA    (EMMDBG_EXTRA | EMMDBG_MQTT)
+#define EMMDBG_OTA           0x00000008
+#define EMMDBG_OTA_EXTRA     (EMMDBG_EXTRA | EMMDBG_OTA)
 #define EMMDBG_TIMING        0x00000010
 #define EMMDBG_TIMING_EXTRA  (EMMDBG_EXTRA | EMMDBG_TIMING)
 #define EMMDBG_FS            0x00000020
@@ -35,6 +36,11 @@
 #ifndef ESP8266_NUM_CLIENTS
   #define ESP8266_NUM_CLIENTS 4
 #endif
+
+typedef struct {
+    unsigned int len;
+    byte         md5[16];
+} ota_info_t;
 
 typedef struct {
     char bssid[19];
@@ -52,8 +58,12 @@ private:
     const char   **networks;
     const char   *network_password;
     const char   *mesh_password;
-    const int    mesh_port;
     const char   *base_ssid;
+    const char   *mqtt_server;
+    const char   *mqtt_username;
+    const char   *mqtt_password;
+    int          mqtt_port;
+    const int    mesh_port;
     const char   *inTopic;
     const char   *outTopic;
 #if ASYNC_TCP_SSL_ENABLED
@@ -61,8 +71,6 @@ private:
     bool mesh_secure;
     const uint8_t *mqtt_fingerprint;
 #endif
-    Settings settings;
-
     AsyncServer     espServer;
     AsyncClient     *espClient[ESP8266_NUM_CLIENTS+1] = {0};
     uint8           espMAC[ESP8266_NUM_CLIENTS+1][6];
@@ -73,7 +81,7 @@ private:
     int retry_connect;
     ap_t ap[LAST_AP];
     int ap_idx = 0;
-    char mySSID[16];
+    char mySSID[20];
     char inbuffer[ESP8266_NUM_CLIENTS+1][MQTT_MAX_PACKET_SIZE];
     char *bufptr[ESP8266_NUM_CLIENTS+1];
     long lastMsg = 0;
@@ -100,10 +108,11 @@ private:
     void setup_AP();
     int read_subdomain(const char *fileName);
     void send_bssids(int idx);
-    bool send_message(int index, const char *topicOrMsg, const char *msg = NULL);
     void handle_client_data(int idx, char *data);
     void parse_message(const char *topic, const char *msg);
     void mqtt_callback(const char* topic, const byte* payload, unsigned int length);
+    bool send_message(int index, const char *topicOrMsg, const char *msg = NULL);
+    void send_messages();
     void broadcast_message(const char *topicOrMsg, const char *msg = NULL);
     bool isAPConnected(uint8 *mac);
     void getMAC(IPAddress ip, uint8 *mac);
@@ -133,7 +142,6 @@ private:
     void onClient(AsyncClient* c);
     void onConnect(AsyncClient* c);
     void onDisconnect(AsyncClient* c);
-    void onPoll(AsyncClient* c);
     void onError(AsyncClient* c, int8_t error);
     void onAck(AsyncClient* c, size_t len, uint32_t time);
     void onTimeout(AsyncClient* c, uint32_t time);
@@ -141,6 +149,10 @@ private:
 
     ESP8266MQTTMesh(const char **networks,
                     const char *network_password,
+                    const char *mqtt_server,
+                    int mqtt_port,
+                    const char *mqtt_username,
+                    const char *mqtt_password,
                     const char *firmware_ver,
                     int firmware_id,
                     const char *mesh_password,
@@ -178,6 +190,8 @@ public:
                     const char *network_password,
                     const char *mesh_password,
                     const char *base_ssid,
+                    const char *mqtt_server,
+                    int mqtt_port, int mesh_port,
                     const char *inTopic,
                     const char *outTopic
 #if ASYNC_TCP_SSL_ENABLED
@@ -192,6 +206,7 @@ public:
     void publish(const char *subtopic, const char *msg, const bool retain = false);
     bool connected();
     //<added by HC>
+    ~ESP8266MQTTMesh();
     bool getStandAloneAP() {return standAloneAP;}
     //</added by HC>
     static bool keyValue(const char *data, char separator, char *key, int keylen, const char **value);
