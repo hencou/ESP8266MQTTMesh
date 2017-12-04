@@ -9,7 +9,7 @@ Changes:
 Original text from PhracturedBlue's ESP8266MQTTMesh:
 
 # ESP8266MQTTMesh
-Self-assembling mesh network built around the MQTT protocol for the ESP8266 with OTA support
+Self-assembling mesh network built around the MQTT protocol for the ESP8266
 
 ## Overview
 Provide a library that can build a mesh network between ESP8266 devices that will allow all nodes to communicate with an MQTT broker.
@@ -22,14 +22,6 @@ Additionally the library provides an OTA mechanism using the MQTT pathway which 
 
 This code was developed primarily for teh Sonoff line of relays, but should work with any ESP8266 board with sufficient flash memory
 
-## OTA
-While all nodes must run the same version of the ESP8622MQTTMesh library, each node may run a unique firmware with independent purposes.
-The main purpose behind this library was to provide a backbone on which several home-automation sensors could be built.  As such
-each node may need different code to achieve its purpose.  Because firmwares are large, and memory is limited on the ESP8266 platform,
-there is only a single memory area to hold the incoming firmware.  To ensure that a given firmware is only consumed by the proper nodes,
-The firmware defines a unique identifier that distinguishes itself from other code.  A given firmware is broadcast from the MQTT
-broker to all nodes, but only nodes with a matching ID will update.
-
 ## Using the Library
 ### Prerequisites
 This library has been converted to use Asynchronous communication for imroved reliability.  It requires the following libraries to be installed
@@ -39,10 +31,6 @@ This library has been converted to use Asynchronous communication for imroved re
   (If using platformio, this can be installed via these [instructions](http://docs.platformio.org/en/latest/platforms/espressif8266.html#using-arduino-framework-with-staging-version)).
 
 **NOTE:** Enabling SSL will add ~70kB to the firmware size, and may make it impossible to use OTA updates depending on firmware and flash size.
-
-If OTA support is desired, the esp8266 module must have at least 1M or Flash (configured as 784k ROM, 256k SPIFFS).  The OTA image is stored
-between the end of the firmware image and the beginning of the filesystem (i.e. not in the filesystem itself).  Thus, for a 1M Flash, the firmware can
-be no larger than ~390kB
 
 ### Library initialization
 The ESP8266MQTTMesh only requires 3 parameters to initialize, but there are many additional optional parameters:
