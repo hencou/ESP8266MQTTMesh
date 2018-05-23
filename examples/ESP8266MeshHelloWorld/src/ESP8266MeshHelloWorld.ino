@@ -1,5 +1,4 @@
 #include "credentials.h"
-#include <ESP8266WiFi.h>
 #include <ESP8266MQTTMesh.h>
 #include <FS.h>
 
@@ -11,18 +10,23 @@
 
 #define      FIRMWARE_ID        0x1337
 #define      FIRMWARE_VER       "0.1"
-const char*  networks[]       = NETWORK_LIST;
-const char*  network_password = NETWORK_PASSWORD;
+wifi_conn    networks[]       = NETWORK_LIST;
 const char*  mesh_password    = MESH_PASSWORD;
 const char*  mqtt_server      = MQTT_SERVER;
 const int    mqtt_port        = MQTT_PORT;
 #if ASYNC_TCP_SSL_ENABLED
 const uint8_t *mqtt_fingerprint = MQTT_FINGERPRINT;
-bool         mqtt_secure      = MQTT_SECURE;
-bool         mesh_secure      = MESH_SECURE;
+bool mqtt_secure = MQTT_SECURE;
+  #if MESH_SECURE
+  #include "ssl_cert.h"
+  #endif
 #endif
 
+#ifdef ESP32
+String ID  = String((unsigned long)ESP.getEfuseMac());
+#else
 String ID  = String(ESP.getChipId());
+#endif
 
 
 
@@ -33,13 +37,15 @@ int cnt = 0;
 
 // Note: All of the '.set' options below are optional.  The default values can be
 // found in ESP8266MQTTMeshBuilder.h
-ESP8266MQTTMesh mesh = ESP8266MQTTMesh::Builder(networks, network_password, mqtt_server, mqtt_port)
+ESP8266MQTTMesh mesh = ESP8266MQTTMesh::Builder(networks, mqtt_server, mqtt_port)
                        .setVersion(FIRMWARE_VER, FIRMWARE_ID)
                        .setMeshPassword(mesh_password)
 #if ASYNC_TCP_SSL_ENABLED
                        .setMqttSSL(mqtt_secure, mqtt_fingerprint)
-                       .setMeshSSL(mesh_secure)
-#endif
+#if MESH_SECURE
+                       .setMeshSSL(ssl_cert, ssl_cert_len, ssl_key, ssl_key_len, ssl_fingerprint)
+#endif //MESH_SECURE
+#endif //ASYNC_TCP_SSL_ENABLED
                        .build();
 
 void callback(const char *topic, const char *msg);
@@ -49,6 +55,7 @@ void callback(const char *topic, const char *msg);
 void setup() {
 
     Serial.begin(115200);
+    delay(1000); //This is only here to make it easier to catch the startup messages.  It isn't required
     mesh.setCallback(callback);
     mesh.begin();
     pinMode(LED_PIN, OUTPUT);
@@ -71,7 +78,7 @@ void loop() {
           mesh.publish(ID.c_str(), msg.c_str());
           previousMillis = currentMillis;
           cnt++;
-      
+
     }
 
 }
