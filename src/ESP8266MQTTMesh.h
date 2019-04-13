@@ -105,20 +105,22 @@ class ESP8266MQTTMesh {
 public:
     class Builder;
 private:
-    const wifi_conn *networks;
-    const char   *mqtt_server;
-    const int    mqtt_port;
-    const char   *mqtt_username;
-    const char   *mqtt_password;
-    int firmware_id;
+    const unsigned int firmware_id;
     const char   *firmware_ver;
+    const wifi_conn *networks;
+
     const char   *mesh_ssid;
     char         mesh_password[64];
+    const char   *mqtt_server;
+    const char   *mqtt_username;
+    const char   *mqtt_password;
+    const int    mqtt_port;
     const int    mesh_port;
     uint32_t     mesh_bssid_key;
 
     const char   *inTopic;
     const char   *outTopic;
+	const char   *hostName;
 #if HAS_OTA
     uint32_t freeSpaceStart;
     uint32_t freeSpaceEnd;
@@ -177,8 +179,8 @@ private:
     void handle_client_data(int idx, char *data);
     void parse_message(const char *topic, const char *msg);
     void mqtt_callback(const char* topic, const byte* payload, unsigned int length);
-    void mqtt_publish(const char *topic, const char *msg, uint8_t msgType);
-
+    uint16_t mqtt_publish(const char *topic, const char *msg, uint8_t msgType);
+    //moved by HC to public: void publish(const char *topicDirection, const char *baseTopic, const char *subTopic, const char *msg, uint8_t msgType);
     bool send_message(int index, const char *topicOrMsg, const char *msg = NULL, uint8_t msgType = MSG_TYPE_NONE);
     void send_messages();
     void send_connected_msg();
@@ -224,24 +226,26 @@ private:
     void onAck(AsyncClient* c, size_t len, uint32_t time);
     void onTimeout(AsyncClient* c, uint32_t time);
     void onData(AsyncClient* c, void* data, size_t len);
-
+					
     ESP8266MQTTMesh(const wifi_conn *networks,
                     const char *mqtt_server,
-					          int mqtt_port,
+					int mqtt_port,
                     const char *mqtt_username,
-					          const char *mqtt_password,
-                    int firmware_id,
+					const char *mqtt_password,
                     const char *firmware_ver,
+					int firmware_id,
                     const char *mesh_ssid,
-          					const char *mesh_password,
-          					int mesh_port,
-    #if ASYNC_TCP_SSL_ENABLED
+					const char *mesh_password,
+					int mesh_port,
+#if ASYNC_TCP_SSL_ENABLED
                     bool mqtt_secure,
-          					const uint8_t *mqtt_fingerprint,
-          					ssl_cert_t mesh_secure,
-    #endif
+					const uint8_t *mqtt_fingerprint,
+					ssl_cert_t mesh_secure,
+#endif
                     const char *inTopic,
-                    const char *outTopic);
+					const char *outTopic,
+					const char *hostName
+				);
 
     //<added by HC>
     int knownNetworksFound = 0;
@@ -266,7 +270,7 @@ public:
     void begin();
     void publish(const char *subtopic, const char *msg, enum MSG_TYPE msgCmd = MSG_TYPE_NONE);
     //<moved by HC>
-    void publish(const char *topicDirection, const char *baseTopic, const char *subTopic, const char *msg, uint8_t msgType);
+	void publish(const char *topicDirection, const char *baseTopic, const char *subTopic, const char *msg, uint8_t msgType);
     //</moved by HC>
     void publish_node(const char *subtopic, const char *msg, enum MSG_TYPE msgCmd = MSG_TYPE_NONE);
     bool connected();

@@ -66,8 +66,8 @@ ESP8266MQTTMesh::ESP8266MQTTMesh(const wifi_conn *networks,
                     int mqtt_port,
                     const char *mqtt_username,
                     const char *mqtt_password,
+					const char *firmware_ver,
                     int firmware_id,
-                    const char *firmware_ver,
                     const char *mesh_ssid,
                     const char *_mesh_password,
                     int mesh_port,
@@ -77,7 +77,8 @@ ESP8266MQTTMesh::ESP8266MQTTMesh(const wifi_conn *networks,
                     ssl_cert_t mesh_secure,
 #endif
                     const char *inTopic,
-                    const char *outTopic
+                    const char *outTopic,
+					const char *hostName
                     ) :
         networks(networks),
         mqtt_server(mqtt_server),
@@ -95,6 +96,7 @@ ESP8266MQTTMesh::ESP8266MQTTMesh(const wifi_conn *networks,
 #endif
         inTopic(inTopic),
         outTopic(outTopic),
+		hostName(hostName),
         espServer(mesh_port)
 {
 
@@ -169,7 +171,7 @@ void ESP8266MQTTMesh::begin() {
     WiFi.mode(WIFI_AP_STA);
     bool ok_ap = wifi_set_macaddr(SOFTAP_IF, const_cast<uint8_t *>(mac));
     mac[0] |= 0x04;
-    bool ok_sta = wifi_set_macaddr(STATION_IF, const_cast<uint8_t *>(mac));
+    bool ok_sta = wifi_set_macaddr(STATION_IF, const_cast<uint8_t *>(mac)); 
     if (! ok_ap || ! ok_sta) {
         dbgPrintln(EMMDBG_MSG, "Failed to set MAC address");
         die();
@@ -290,7 +292,7 @@ void ESP8266MQTTMesh::connectWiFiEvents()
 void ESP8266MQTTMesh::connectWiFiEvents()
 {
     wifiConnectHandler =
-        WiFi.onStationModeGotIP(            [this] (const WiFiEventStationModeGotIP& e) {                this->onWifiConnect(e);    });
+        WiFi.onStationModeGotIP(            [this] (const WiFiEventStationModeGotIP& e) {                this->onWifiConnect(e);    }); 
     wifiDisconnectHandler =
         WiFi.onStationModeDisconnected(     [this] (const WiFiEventStationModeDisconnected& e) {         this->onWifiDisconnect(e); });
     //wifiDHCPTimeoutHandler =
@@ -423,14 +425,24 @@ void ESP8266MQTTMesh::scan() {
         ap_t *ap_last = NULL;
         for(ap_ptr = ap; ap_ptr != NULL; ap_last = ap_ptr, ap_ptr = ap_ptr->next) {
             if(network_idx >= 0) {
-                //AP is Wifi AP
-                if (ap_ptr->ssid_idx != NETWORK_MESH_NODE && rssi <= ap_ptr->rssi) {
-                   continue;
+                //Tested Signal is Wifi AP
+
+                //Our connected AP is a directAP
+                //   and the signal of the tested directAP is worse (lower then current)
+                //OR tested directAP has bad signal (lower then -80dbm)
+                //   and signal to the current directAP or Meshnode is better
+                //THEN better keep our current connection
+                if((ap_ptr->ssid_idx != NETWORK_MESH_NODE && rssi < ap_ptr->rssi) || (rssi < -80 && rssi < ap_ptr->rssi)) {
+                    continue;
                 }
             } else {
-                //AP is mesh node
-                if (ap_ptr->ssid_idx != NETWORK_MESH_NODE || rssi <= ap_ptr->rssi) {
-                   continue;
+                //Tested Signal is Meshnode
+
+                //Our connected AP is a directAP and the signal is okay
+                //Or the signal of the tested Meshnode is worse then our current connection
+                //THEN keep the current connection
+                if((ap_ptr->ssid_idx != NETWORK_MESH_NODE && ap_ptr->rssi > -80) || rssi < ap_ptr->rssi) {
+                    continue;
                 }
             }
             break;
@@ -557,6 +569,9 @@ void ESP8266MQTTMesh::connect() {
         ssid = networks[ap_ptr->ssid_idx].ssid;
         password = networks[ap_ptr->ssid_idx].password;
         //<changed by HC>
+		if (strlen(hostName) > 0) {
+			WiFi.hostname(hostName);
+		}
         if (strcmp(ssid, "ESP-AP") == 0) {
           meshConnect = true;
         } else {
@@ -828,7 +843,7 @@ void ESP8266MQTTMesh::handle_client_data(int idx, char *rawdata) {
             }
 }
 
-void ESP8266MQTTMesh::mqtt_publish(const char *topic, const char *msg, uint8_t msgType)
+uint16_t ESP8266MQTTMesh::mqtt_publish(const char *topic, const char *msg, uint8_t msgType)
 {
     uint8_t qos = 0;
     bool retain = false;
@@ -927,7 +942,7 @@ void ESP8266MQTTMesh::parse_ota_info(const char *str) {
         }
     }
 }
-
+    
 bool ESP8266MQTTMesh::check_ota_md5() {
     uint8_t buf[128];
     if (ota_info.len > freeSpaceEnd - freeSpaceStart) {
@@ -966,7 +981,7 @@ char * ESP8266MQTTMesh::md5(const uint8_t *msg, int len) {
     return out;
 }
 void ESP8266MQTTMesh::erase_sector() {
-    uint32_t start = freeSpaceStart / FLASH_SECTOR_SIZE;
+    int start = freeSpaceStart / FLASH_SECTOR_SIZE;
     //erase flash area here
     ESP.flashEraseSector(nextErase--);
     if (nextErase >= start) {
@@ -989,7 +1004,7 @@ void ESP8266MQTTMesh::handle_ota(const char *cmd, const char *msg) {
         cmd += strlen(myID);
     } else {
         char *end;
-        int id = strtoul(cmd,&end, 16);
+        unsigned int id = strtoul(cmd,&end, 16);
         if (id != firmware_id || *end != '/') {
             dbgPrintln(EMMDBG_OTA, "Ignoring OTA because firmwareID did not match " + String(firmware_id, HEX));
             return;
@@ -1031,7 +1046,7 @@ void ESP8266MQTTMesh::handle_ota(const char *cmd, const char *msg) {
             return;
         }
         dbgPrintln(EMMDBG_OTA, "Flashing");
-
+        
         eboot_command ebcmd;
         ebcmd.action = ACTION_COPY_RAW;
         ebcmd.args[0] = freeSpaceStart;
@@ -1330,7 +1345,7 @@ void ESP8266MQTTMesh::onData(AsyncClient* c, void* data, size_t len) {
     for (int idx = meshConnect ? 0 : 1; idx <= ESP8266_NUM_CLIENTS; idx++) {
         if (espClient[idx] == c) {
             char *dptr = (char *)data;
-            for (size_t i = 0; i < len; i++) {
+            for (int i = 0; i < len; i++) {
                 *bufptr[idx]++ = dptr[i];
                 if(! dptr[i]) {
                     handle_client_data(idx, inbuffer[idx]);

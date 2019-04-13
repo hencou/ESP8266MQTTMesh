@@ -9,14 +9,17 @@ private:
     int          mqtt_port;
     const char   *mqtt_username;
     const char   *mqtt_password;
-
-    unsigned int firmware_id;
-    const char   *firmware_ver;
-
+ 
     const char   *mesh_ssid;
     const char   *mesh_password;
     int          mesh_port;
 
+    const char   *inTopic;
+    const char   *outTopic;
+	const char   *hostName;
+	
+    unsigned int firmware_id;
+    const char   *firmware_ver;
 #if ASYNC_TCP_SSL_ENABLED
     bool mqtt_secure;
     ssl_cert_t mesh_secure;
@@ -25,9 +28,6 @@ private:
 #else
     void fix_mqtt_port() { if (! mqtt_port) mqtt_port = 1883; };
 #endif
-
-const char   *inTopic;
-const char   *outTopic;
 
 public:
     Builder(const wifi_conn *networks,
@@ -49,8 +49,8 @@ public:
        mesh_secure({NULL, NULL, NULL, 0, 0}),
 #endif
        inTopic("esp8266-in/"),
-       outTopic("esp8266-out/")
-
+       outTopic("esp8266-out/"),
+	   hostName(NULL)
        {}
     Builder& setVersion(const char *firmware_ver, int firmware_id) {
         this->firmware_id = firmware_id;
@@ -70,6 +70,7 @@ public:
         this->outTopic = outTopic;
         return *this;
     }
+	Builder& setHostName(const char *hostName) { this->hostName = hostName; return *this; }
 #if ASYNC_TCP_SSL_ENABLED
     Builder& setMqttSSL(bool enable, const uint8_t *fingerprint) {
         this->mqtt_secure = enable;
@@ -97,8 +98,8 @@ public:
             mqtt_username,
             mqtt_password,
 
-            firmware_id,
             firmware_ver,
+            firmware_id,
 
             mesh_ssid,
             mesh_password,
@@ -111,7 +112,9 @@ public:
 #endif
 
             inTopic,
-            outTopic));
+            outTopic,
+			hostName
+		));
     }
     ESP8266MQTTMesh *buildptr() {
         fix_mqtt_port();
@@ -123,8 +126,8 @@ public:
             mqtt_username,
             mqtt_password,
 
-            firmware_id,
             firmware_ver,
+            firmware_id,
 
             mesh_ssid,
             mesh_password,
@@ -137,7 +140,9 @@ public:
 #endif
 
             inTopic,
-            outTopic));
+            outTopic,
+			hostName
+		));
     }
 };
 #endif //_ESP8266MQTTMESHBUILDER_H_
