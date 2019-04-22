@@ -569,7 +569,7 @@ void ESP8266MQTTMesh::connect() {
         ssid = networks[ap_ptr->ssid_idx].ssid;
         password = networks[ap_ptr->ssid_idx].password;
         //<changed by HC>
-		if (strlen(hostName) > 0) {
+		if (hostName != NULL && strlen(hostName) > 0) {
 			WiFi.hostname(hostName);
 		}
         if (strcmp(ssid, "ESP-AP") == 0) {
