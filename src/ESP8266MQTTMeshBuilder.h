@@ -4,22 +4,20 @@
 class ESP8266MQTTMesh::Builder {
 private:
     const wifi_conn *networks;
-
     const char   *mqtt_server;
     int          mqtt_port;
     const char   *mqtt_username;
     const char   *mqtt_password;
- 
+    const char   *firmware_ver;
+    unsigned int firmware_id;
     const char   *mesh_ssid;
     const char   *mesh_password;
     int          mesh_port;
-
     const char   *inTopic;
     const char   *outTopic;
 	const char   *hostName;
 	
-    unsigned int firmware_id;
-    const char   *firmware_ver;
+    
 #if ASYNC_TCP_SSL_ENABLED
     bool mqtt_secure;
     ssl_cert_t mesh_secure;
@@ -38,8 +36,8 @@ public:
        mqtt_port(mqtt_port),
        mqtt_username(NULL),
        mqtt_password(NULL),
-       firmware_id(0),
        firmware_ver(NULL),
+       firmware_id(0),
        mesh_ssid("esp8266_mqtt_mesh"),
        mesh_password("ESP8266MQTTMesh"),
        mesh_port(1884),
@@ -92,25 +90,20 @@ public:
         fix_mqtt_port();
         return( ESP8266MQTTMesh(
             networks,
-
             mqtt_server,
             mqtt_port,
             mqtt_username,
             mqtt_password,
-
             firmware_ver,
             firmware_id,
-
             mesh_ssid,
             mesh_password,
             mesh_port,
-
 #if ASYNC_TCP_SSL_ENABLED
             mqtt_secure,
             mqtt_fingerprint,
             mesh_secure,
 #endif
-
             inTopic,
             outTopic,
 			hostName
@@ -120,25 +113,20 @@ public:
         fix_mqtt_port();
         return( new ESP8266MQTTMesh(
             networks,
-
             mqtt_server,
             mqtt_port,
             mqtt_username,
             mqtt_password,
-
             firmware_ver,
             firmware_id,
-
             mesh_ssid,
             mesh_password,
             mesh_port,
-
 #if ASYNC_TCP_SSL_ENABLED
             mqtt_secure,
             mqtt_fingerprint,
             mesh_secure,
 #endif
-
             inTopic,
             outTopic,
 			hostName

@@ -981,7 +981,7 @@ char * ESP8266MQTTMesh::md5(const uint8_t *msg, int len) {
     return out;
 }
 void ESP8266MQTTMesh::erase_sector() {
-    int start = freeSpaceStart / FLASH_SECTOR_SIZE;
+    uint32_t start = freeSpaceStart / FLASH_SECTOR_SIZE;
     //erase flash area here
     ESP.flashEraseSector(nextErase--);
     if (nextErase >= start) {
@@ -1345,7 +1345,7 @@ void ESP8266MQTTMesh::onData(AsyncClient* c, void* data, size_t len) {
     for (int idx = meshConnect ? 0 : 1; idx <= ESP8266_NUM_CLIENTS; idx++) {
         if (espClient[idx] == c) {
             char *dptr = (char *)data;
-            for (int i = 0; i < len; i++) {
+            for (size_t i = 0; i < len; i++) {
                 *bufptr[idx]++ = dptr[i];
                 if(! dptr[i]) {
                     handle_client_data(idx, inbuffer[idx]);

@@ -105,16 +105,17 @@ class ESP8266MQTTMesh {
 public:
     class Builder;
 private:
-    const unsigned int firmware_id;
-    const char   *firmware_ver;
-    const wifi_conn *networks;
 
-    const char   *mesh_ssid;
-    char         mesh_password[64];
+    ;
+    const wifi_conn *networks;
     const char   *mqtt_server;
+    const int    mqtt_port;
     const char   *mqtt_username;
     const char   *mqtt_password;
-    const int    mqtt_port;
+    const char   *firmware_ver;
+    const unsigned int firmware_id;
+    const char   *mesh_ssid;
+    char         mesh_password[64];
     const int    mesh_port;
     uint32_t     mesh_bssid_key;
 
